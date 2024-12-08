@@ -1,0 +1,6 @@
+# Rust compilation artifacts
+/target
+Cargo.lock
+
+# VSCode files
+*.code-workspace
