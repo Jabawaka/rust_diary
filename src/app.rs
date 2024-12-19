@@ -5,8 +5,8 @@ use time::{Date, OffsetDateTime};
 #[derive(Clone)]
 pub struct Entry {
     pub content: String,
-    pub weight_kg: f32,
-    pub waist_cm: f32,
+    pub weight_kg: Option<f32>,
+    pub waist_cm: Option<f32>,
     pub date: Date,
 }
 
@@ -14,28 +14,78 @@ impl Entry {
     #[cfg(debug_assertions)]
     pub fn print(&self) {
         println!(" ---- {} ----", self.date);
-        println!("  {} kg, {} cm", self.weight_kg, self.waist_cm);
+
+        let weight_str;
+        if let Some(weight_kg) = self.weight_kg {
+            weight_str = weight_kg.to_string();
+        } else {
+            weight_str = String::from("--");
+        }
+
+        let waist_str;
+        if let Some(waist_cm) = self.waist_cm {
+            waist_str = waist_cm.to_string();
+        } else {
+            waist_str = String::from("--")
+        }
+
+        println!("  {} kg, {} cm", weight_str, waist_str);
         println!("  {}", self.content);
     }
 
     #[cfg(debug_assertions)]
     pub fn print_redux(&self) {
+        let content_str;
         if self.content.len() < 20 {
-            println!(" -- {} -- {} kg, {} cm -- {}", self.date, self.weight_kg, self.waist_cm, &self.content[0..self.content.len()]);
+            content_str = self.content.as_str();
         } else {
-            println!(" -- {} -- {} kg, {} cm -- {}", self.date, self.weight_kg, self.waist_cm, &self.content[0..20]);
+            content_str = &self.content[0..20];
         }
+
+        let weight_str;
+        if let Some(weight_kg) = self.weight_kg {
+            weight_str = weight_kg.to_string();
+        } else {
+            weight_str = String::from("--");
+        }
+
+        let waist_str;
+        if let Some(waist_cm) = self.waist_cm {
+            waist_str = waist_cm.to_string();
+        } else {
+            waist_str = String::from("--")
+        }
+
+        println!(" -- {} -- {} kg, {} cm -- {}", self.date, weight_str, waist_str, content_str);
     }
 }
 
+pub enum CurrScreen {
+    Main,
+    Editing,
+}
+
+pub enum ZoomLevel {
+    Day,
+    Week,
+    Month,
+    Year,
+}
+
+pub const DAYS_IN_A_WEEK: u16 = 7;
+
 pub struct App {
     pub entries: Vec<Entry>,
+    pub curr_screen: CurrScreen,
+    pub curr_date: Date,
 }
 
 impl App {
     pub fn new() -> App {
         App {
             entries: vec![],
+            curr_screen: CurrScreen::Main,
+            curr_date: OffsetDateTime::now_local().unwrap().date(),
         }
     }
 
@@ -45,6 +95,66 @@ impl App {
         } else {
             return None;
         }
+    }
+
+    pub fn get_weights(&self, date: Date, zoom_level: ZoomLevel) -> Vec<(f64, f64)> {
+        let mut weights = Vec::new();
+
+        match zoom_level {
+            ZoomLevel::Day => {
+                let mut curr_day = date.prev_occurrence(date.weekday());
+                let mut x_axis = 0.0;
+
+                while curr_day <= date {
+                    if let Some(entry) = self.get_entry_by_date(curr_day) {
+                        if let Some(weight) = entry.weight_kg {
+                            weights.push((x_axis, weight as f64));
+                        }
+                    }
+
+                    curr_day = curr_day.next_day().unwrap();
+                    x_axis = x_axis + 1.0;
+                }
+            }
+            ZoomLevel::Week => {
+            }
+            ZoomLevel::Month => {
+            }
+            ZoomLevel::Year => {
+            }
+        }
+
+        weights
+    }
+
+    pub fn get_waists(&self, date: Date, zoom_level: ZoomLevel) -> Vec<(f64, f64)> {
+        let mut waists = Vec::new();
+
+        match zoom_level {
+            ZoomLevel::Day => {
+                let mut curr_day = date.prev_occurrence(date.weekday());
+                let mut x_axis = 0.0;
+
+                while curr_day <= date {
+                    if let Some(entry) = self.get_entry_by_date(curr_day) {
+                        if let Some(waist) = entry.waist_cm {
+                            waists.push((x_axis, waist as f64));
+                        }
+                    }
+
+                    curr_day = curr_day.next_day().unwrap();
+                    x_axis = x_axis + 1.0;
+                }
+            }
+            ZoomLevel::Week => {
+            }
+            ZoomLevel::Month => {
+            }
+            ZoomLevel::Year => {
+            }
+        }
+
+        waists
     }
 
     pub fn save_entry(&mut self, entry_to_save: Entry) {
