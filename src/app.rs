@@ -5,8 +5,8 @@ use time::{Date, OffsetDateTime};
 #[derive(Clone)]
 pub struct Entry {
     pub content: String,
-    pub weight_kg: f32,
-    pub waist_cm: f32,
+    pub weight_kg: Option<f32>,
+    pub waist_cm: Option<f32>,
     pub date: Date,
 }
 
@@ -14,28 +14,69 @@ impl Entry {
     #[cfg(debug_assertions)]
     pub fn print(&self) {
         println!(" ---- {} ----", self.date);
-        println!("  {} kg, {} cm", self.weight_kg, self.waist_cm);
+
+        let weight_str;
+        if let Some(weight_kg) = self.weight_kg {
+            weight_str = weight_kg.to_string();
+        } else {
+            weight_str = String::from("--");
+        }
+
+        let waist_str;
+        if let Some(waist_cm) = self.waist_cm {
+            waist_str = waist_cm.to_string();
+        } else {
+            waist_str = String::from("--")
+        }
+
+        println!("  {} kg, {} cm", weight_str, waist_str);
         println!("  {}", self.content);
     }
 
     #[cfg(debug_assertions)]
     pub fn print_redux(&self) {
+        let content_str;
         if self.content.len() < 20 {
-            println!(" -- {} -- {} kg, {} cm -- {}", self.date, self.weight_kg, self.waist_cm, &self.content[0..self.content.len()]);
+            content_str = self.content.as_str();
         } else {
-            println!(" -- {} -- {} kg, {} cm -- {}", self.date, self.weight_kg, self.waist_cm, &self.content[0..20]);
+            content_str = &self.content[0..20];
         }
+
+        let weight_str;
+        if let Some(weight_kg) = self.weight_kg {
+            weight_str = weight_kg.to_string();
+        } else {
+            weight_str = String::from("--");
+        }
+
+        let waist_str;
+        if let Some(waist_cm) = self.waist_cm {
+            waist_str = waist_cm.to_string();
+        } else {
+            waist_str = String::from("--")
+        }
+
+        println!(" -- {} -- {} kg, {} cm -- {}", self.date, weight_str, waist_str, content_str);
     }
+}
+
+pub enum CurrScreen {
+    Main,
+    Editing,
 }
 
 pub struct App {
     pub entries: Vec<Entry>,
+    pub curr_screen: CurrScreen,
+    pub curr_date: Date,
 }
 
 impl App {
     pub fn new() -> App {
         App {
             entries: vec![],
+            curr_screen: CurrScreen::Main,
+            curr_date: OffsetDateTime::now_local().unwrap().date(),
         }
     }
 
