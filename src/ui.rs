@@ -192,7 +192,7 @@ fn render_main(frame: &mut Frame, entry_area: Rect, instructions_area: Rect, app
     frame.render_widget(entry_text, text_area);
 
     // ------ INSTRUCTIONS AREA ------
-    let instructions = Paragraph::new(Span::styled("'hjkl' - Navigate date  |  'e' - Enter edit mode  |  '<>' - Graph zoom", text_style))
+    let instructions = Paragraph::new(Span::styled("'hjkl', '◄▲▼►' - Navigate date  |  'e' - Enter edit mode  |  '<>' - Graph zoom", text_style))
         .alignment(Alignment::Center)
         .block(default_bordered_block);
 

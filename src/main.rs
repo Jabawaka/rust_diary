@@ -96,6 +96,10 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> io::Result<
                 CurrScreen::Main => match key.code {
                     KeyCode::Char('q') => break,
                     KeyCode::Esc => break,
+                    KeyCode::Char('h') | KeyCode::Left  => app.curr_date = app.curr_date.previous_day().unwrap(),
+                    KeyCode::Char('l') | KeyCode::Right => app.curr_date = app.curr_date.next_day().unwrap(),
+                    KeyCode::Char('j') | KeyCode::Up    => app.curr_date = app.curr_date.prev_occurrence(app.curr_date.weekday()),
+                    KeyCode::Char('k') | KeyCode::Down  => app.curr_date = app.curr_date.next_occurrence(app.curr_date.weekday()),
                     _ => {},
                 }
                 CurrScreen::Editing => match key.code {
