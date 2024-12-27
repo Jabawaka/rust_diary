@@ -1,4 +1,5 @@
 use std::{error::Error, io};
+use std::time::Instant;
 
 use crossterm::event;
 use ratatui::{
@@ -142,7 +143,6 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> io::Result<
 
             match app.curr_screen {
                 CurrScreen::Main => match key.code {
-                    KeyCode::Char('q') => break,
                     KeyCode::Esc => break,
                     KeyCode::Char('e') => app.enter_edit_mode(),
                     KeyCode::Char('h') | KeyCode::Left  => app.curr_date = app.curr_date.previous_day().unwrap(),
@@ -152,14 +152,13 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> io::Result<
                     _ => {},
                 }
                 CurrScreen::Editing => match key.code {
-                    KeyCode::Char('q') => break,
                     KeyCode::Esc => break,
                     KeyCode::Enter => app.enter_main_mode(),
                     KeyCode::Char(c) => app.type_char(c),
                     KeyCode::Backspace => app.remove_char(),
                     KeyCode::Tab => app.cycle_edit_value(),
-                    KeyCode::Left => app.next_cursor(),
-                    KeyCode::Right => app.prev_cursor(),
+                    KeyCode::Left => app.prev_cursor(),
+                    KeyCode::Right => app.next_cursor(),
                     _ => {},
                 }
             }

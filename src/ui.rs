@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     prelude::{Stylize, Margin},
@@ -13,12 +15,10 @@ use ratatui::{
 
 use time::format_description;
 
-use crate::app::{App, CurrScreen, ZoomLevel};
-
-const BLINK_TIME_S:f32 = 1.0;
+use crate::app::{App, CurrScreen, ZoomLevel, EditValue};
 
 
-pub fn ui(frame: &mut Frame, app: &App) {
+pub fn ui(frame: &mut Frame, app: &mut App) {
     // ------ SPLIT INTO NECESSARY AREAS ------
     // Split the frame into the vertical chunks we want: header, entry, graphs and footer (with calendar)
     let [header_area, main_area, graph_area, instructions_area] = Layout::default()
@@ -208,10 +208,68 @@ fn render_main(frame: &mut Frame, entry_area: Rect, instructions_area: Rect, app
     frame.render_widget(instructions, instructions_area);
 }
 
-fn render_edit(frame: &mut Frame, entry_area: Rect, footer: Rect, app: &App) {
+fn render_edit(frame: &mut Frame, entry_area: Rect, instructions_area: Rect, app: &App) {
+    // ------ ENTRY AREA ------
+    let default_bordered_block = Block::default()
+        .borders(Borders::ALL)
+        .style(Style::default());
+    let text_style = Style::default().fg(Color::White);
+
+    // Entry text
+    let entry_str;
+    if app.edit_value == EditValue::Content {
+        entry_str = app.edit_content.to_edit_string();
+    } else {
+        entry_str = app.edit_content.to_final_string();
+    }
+
+    // Weight text
+    let mut weight_str;
+    let kg_str = String::from(" kg, ");
+    if app.edit_value == EditValue::Weight {
+        weight_str = app.edit_weight.to_edit_string();
+    } else {
+        weight_str = app.edit_weight.to_final_string();
+    }
+    weight_str.push_str(&kg_str);
+
+    // Waist text
+    let mut waist_str;
+    let cm_str = String::from(" cm");
+    if app.edit_value == EditValue::Waist {
+        waist_str = app.edit_waist.to_edit_string();
+    } else {
+        waist_str = app.edit_waist.to_final_string();
+    }
+    waist_str.push_str(&cm_str);
+
+    let entry_para = Paragraph::new(Text::from(vec![
+        Line::from(vec![
+            Span::styled(weight_str, text_style),
+            Span::styled(waist_str, text_style)
+        ]).alignment(Alignment::Right),
+        Line::from(Span::raw("")),
+        Line::from(Span::styled(entry_str, text_style))
+    ]))
+    .wrap(Wrap {trim: false});
+
+    let text_area = entry_area.inner(Margin {
+        vertical: 1,
+        horizontal: 3}
+    );
+
+    frame.render_widget(default_bordered_block.clone(), entry_area);
+    frame.render_widget(entry_para, text_area);
+
+    // ------ INSTRUCTIONS AREA ------
+    let instructions = Paragraph::new(Span::styled("Type to enter values  |  Tab - Cycle through fields  |  Enter - Save and exit edit mode", text_style))
+        .alignment(Alignment::Center)
+        .block(default_bordered_block);
+
+    frame.render_widget(instructions, instructions_area);
 }
 
-fn centred_rect(perc_x: u16, perc_y: u16, r: Rect) -> Rect {
+fn centered_rect(perc_x: u16, perc_y: u16, r: Rect) -> Rect {
     let popup_layout = Layout::default()
         .direction(Direction::Vertical)
         .constraints([

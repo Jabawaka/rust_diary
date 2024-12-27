@@ -1,4 +1,5 @@
 use std::cmp::Ordering;
+use std::time::Instant;
 use time::{Date, OffsetDateTime};
 
 #[derive(Clone)]
@@ -69,8 +70,8 @@ impl Entry {
 }
 
 pub struct EditString {
-    prev: String,
-    next: String,
+    pub prev: String,
+    pub next: String,
 }
 
 impl EditString {
@@ -128,11 +129,24 @@ impl EditString {
         }
     }
 
-    pub fn to_string(&mut self) -> String {
+    pub fn to_final_string(&self) -> String {
         let mut final_string = String::from(&self.prev);
         final_string.push_str(&self.next);
 
         final_string
+    }
+
+    pub fn to_edit_string(&self) -> String {
+        let mut edit_string = String::from(&self.prev);
+        edit_string.push('_');
+
+        let mut next_str = String::from(&self.next);
+        if next_str.len() > 0 {
+            next_str.remove(0);
+        }
+        edit_string.push_str(&next_str);
+
+        edit_string
     }
 }
 
@@ -141,6 +155,7 @@ pub enum CurrScreen {
     Editing,
 }
 
+#[derive(PartialEq)]
 pub enum EditValue {
     Content,
     Weight,
@@ -209,33 +224,39 @@ impl App {
     pub fn enter_main_mode(&mut self) {
         self.curr_screen = CurrScreen::Main;
 
+        let content = self.edit_content.to_final_string();
+
         let final_weight_kg;
-        if let Ok(weight_kg) = self.edit_weight.to_string().parse::<f32>() {
+        if let Ok(weight_kg) = self.edit_weight.to_final_string().parse::<f32>() {
             final_weight_kg = Some(weight_kg);
         } else {
             final_weight_kg = None;
         }
 
         let final_waist_cm;
-        if let Ok(waist_cm) = self.edit_waist.to_string().parse::<f32>() {
+        if let Ok(waist_cm) = self.edit_waist.to_final_string().parse::<f32>() {
             final_waist_cm = Some(waist_cm);
         } else {
             final_waist_cm = None;
         }
 
-        let entry_to_save = Entry {
-            content: self.edit_content.to_string(),
-            weight_kg: final_weight_kg,
-            waist_cm: final_waist_cm,
-            date: self.curr_date
-        };
+        if content.len() > 0 || final_weight_kg != None || final_waist_cm != None {
+            let entry_to_save = Entry {
+                content: content,
+                weight_kg: final_weight_kg,
+                waist_cm: final_waist_cm,
+                date: self.curr_date
+            };
 
-        self.save_entry(entry_to_save);
+            self.save_entry(entry_to_save);
+        }
     }
 
     pub fn type_char(&mut self, c: char) {
         match self.edit_value {
-            EditValue::Content => self.edit_content.add_char(c),
+            EditValue::Content => {
+                self.edit_content.add_char(c);
+            }
             EditValue::Weight => {
                 if c.is_digit(10) || c == '.' {
                     self.edit_weight.add_char(c);
