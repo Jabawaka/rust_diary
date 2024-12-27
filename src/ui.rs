@@ -1,18 +1,21 @@
-use std::default;
-
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     prelude::{Stylize, Margin},
     style::{Color, Style},
-    symbols::{self, Marker},
-    text::{self, Line, Span, Text},
-    widgets::{calendar::{CalendarEventStore, Monthly}, Axis, Block, Borders, Chart, Dataset, GraphType, Paragraph, Wrap
-    }, Frame
+    symbols::Marker,
+    text::{Line, Span, Text},
+    widgets::{
+        calendar::{CalendarEventStore, Monthly},
+        Axis, Block, Borders, Chart, Dataset, GraphType, Paragraph, Wrap
+    },
+    Frame
 };
 
-use time::{Date, format_description};
+use time::format_description;
 
 use crate::app::{App, CurrScreen, ZoomLevel};
+
+const BLINK_TIME_S:f32 = 1.0;
 
 
 pub fn ui(frame: &mut Frame, app: &App) {
@@ -22,8 +25,8 @@ pub fn ui(frame: &mut Frame, app: &App) {
         .direction(Direction::Vertical)
         .constraints([
             Constraint::Length(3),
-            Constraint::Length(10),
-            Constraint::Length(18),
+            Constraint::Min(10),
+            Constraint::Length(20),
             Constraint::Length(3),
         ])
     .areas(frame.area());
@@ -63,11 +66,28 @@ pub fn ui(frame: &mut Frame, app: &App) {
 
     // ------ RENDER GRAPHS ------
     // Weight graph
-    let weight_pts = app.get_weights(app.curr_date, ZoomLevel::Day);
+    let weight_pts = app.get_weights(app.curr_date, app.zoom);
+
+    let mut labels = Vec::new();
+    match app.zoom {
+        ZoomLevel::Day => {
+            let mut date = app.curr_date.prev_occurrence(app.curr_date.weekday());
+
+            while date <= app.curr_date {
+                labels.push(date.day().to_string());
+                date = date.next_day().unwrap();
+            }
+        }
+        ZoomLevel::Week => {
+        }
+        ZoomLevel::Month => {
+        }
+    }
 
     let x_axis = Axis::default()
         .style(Style::default())
-        .bounds([0.0, 8.0]);
+        .labels(labels)
+        .bounds([0.0, 7.0]);
 
     let y_axis = Axis::default()
         .style(Style::default())
@@ -75,7 +95,6 @@ pub fn ui(frame: &mut Frame, app: &App) {
         .bounds([60.0, 100.0]);
 
     let weight_data = Dataset::default()
-        .name("weight [kg]")
         .marker(Marker::Braille)
         .style(Style::default().fg(Color::Cyan))
         .graph_type(GraphType::Line)
@@ -83,17 +102,13 @@ pub fn ui(frame: &mut Frame, app: &App) {
 
     let weight_chart = Chart::new(vec![weight_data])
         .block(Block::new().title("Weight [kg]"))
-        .x_axis(x_axis)
+        .x_axis(x_axis.clone())
         .y_axis(y_axis);
 
-    frame.render_widget(weight_chart, weight_graph_area);
+    frame.render_widget(weight_chart, weight_graph_area.inner(Margin {vertical: 1, horizontal: 1}));
 
     // Waist graph
     let waist_pts = app.get_waists(app.curr_date, ZoomLevel::Day);
-
-    let x_axis = Axis::default()
-        .style(Style::default())
-        .bounds([0.0, 8.0]);
 
     let y_axis = Axis::default()
         .style(Style::default())
@@ -101,7 +116,6 @@ pub fn ui(frame: &mut Frame, app: &App) {
         .bounds([60.0, 100.0]);
 
     let waist_data = Dataset::default()
-        .name("weight [kg]")
         .marker(Marker::Braille)
         .style(Style::default().fg(Color::Cyan))
         .graph_type(GraphType::Line)
@@ -112,7 +126,7 @@ pub fn ui(frame: &mut Frame, app: &App) {
         .x_axis(x_axis)
         .y_axis(y_axis);
 
-    frame.render_widget(waist_chart, waist_graph_area);
+    frame.render_widget(waist_chart, waist_graph_area.inner(Margin {vertical: 1, horizontal: 1}));
 
     // ------ RENDER CALENDAR ------
     let mut calendar_style = CalendarEventStore::today(Style::default());
@@ -123,12 +137,7 @@ pub fn ui(frame: &mut Frame, app: &App) {
         .show_month_header(Style::new().bold())
         .show_weekdays_header(Style::new().italic());
 
-    let final_calendar_area = calendar_area.inner(Margin {
-        vertical: 1,
-        horizontal: 1
-    });
-
-    frame.render_widget(curr_month, final_calendar_area);
+    frame.render_widget(curr_month, calendar_area.inner(Margin {vertical: 1, horizontal: 1}));
 
     // Render areas dependent on screen of app: entry and instructions
     match app.curr_screen {
