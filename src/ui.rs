@@ -147,6 +147,10 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
         CurrScreen::Editing => {
             render_edit(frame, entry_area, instructions_area, app);
         }
+        CurrScreen::DiscardChanges => {
+            render_edit(frame, entry_area, instructions_area, app);
+            render_discard(frame, entry_area);
+        }
     }
 }
 
@@ -267,6 +271,20 @@ fn render_edit(frame: &mut Frame, entry_area: Rect, instructions_area: Rect, app
         .block(default_bordered_block);
 
     frame.render_widget(instructions, instructions_area);
+}
+
+fn render_discard(frame: &mut Frame, entry_area: Rect) {
+    let dialogue_rect = centered_rect(50, 30, entry_area);
+    let text_style = Style::default().fg(Color::White);
+
+    let discard_msg = Paragraph::new(vec![
+        Line::from(Span::raw("")),
+        Line::from(Span::styled("Do you want to discard all changes?", text_style)).alignment(Alignment::Center),
+        Line::from(Span::raw("")),
+        Line::from(Span::styled("Y/N", text_style)).alignment(Alignment::Center)
+    ]).block(Block::bordered());
+
+    frame.render_widget(discard_msg, dialogue_rect);
 }
 
 fn centered_rect(perc_x: u16, perc_y: u16, r: Rect) -> Rect {

@@ -152,13 +152,18 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> io::Result<
                     _ => {},
                 }
                 CurrScreen::Editing => match key.code {
-                    KeyCode::Esc => break,
+                    KeyCode::Esc => app.curr_screen = CurrScreen::DiscardChanges,
                     KeyCode::Enter => app.enter_main_mode(),
                     KeyCode::Char(c) => app.type_char(c),
                     KeyCode::Backspace => app.remove_char(),
                     KeyCode::Tab => app.cycle_edit_value(),
                     KeyCode::Left => app.prev_cursor(),
                     KeyCode::Right => app.next_cursor(),
+                    _ => {},
+                }
+                CurrScreen::DiscardChanges => match key.code {
+                    KeyCode::Char('y') | KeyCode::Char('Y') => app.curr_screen = CurrScreen::Main,
+                    KeyCode::Char('n') | KeyCode::Char('N')=> app.curr_screen = CurrScreen::Editing,
                     _ => {},
                 }
             }

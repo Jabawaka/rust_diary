@@ -153,6 +153,7 @@ impl EditString {
 pub enum CurrScreen {
     Main,
     Editing,
+    DiscardChanges,
 }
 
 #[derive(PartialEq)]
