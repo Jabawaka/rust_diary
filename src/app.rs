@@ -1,8 +1,9 @@
 use std::cmp::Ordering;
-use std::time::Instant;
+use std::fs;
 use time::{Date, OffsetDateTime};
+use serde::{Deserialize, Serialize};
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Entry {
     pub content: String,
     pub weight_kg: Option<f32>,
@@ -11,15 +12,6 @@ pub struct Entry {
 }
 
 impl Entry {
-    pub fn new(date: Date) -> Entry {
-        Entry {
-            content: String::new(),
-            weight_kg: None,
-            waist_cm: None,
-            date: date,
-        }
-    }
-
     #[cfg(debug_assertions)]
     pub fn print(&self) {
         println!(" ---- {} ----", self.date);
@@ -194,6 +186,17 @@ impl App {
             curr_screen: CurrScreen::Main,
             edit_value: EditValue::Content,
             zoom: ZoomLevel::Day,
+        }
+    }
+
+    pub fn save_to_file(&self) {
+        let file = String::from("diary.json");
+        fs::write(file, &serde_json::to_vec_pretty(&self.entries).expect("DB should be writeable")).expect("DB should be writeable");
+    }
+
+    pub fn load_from_file(&mut self) {
+        if let Ok(file_contents) = fs::read_to_string("diary.json") {
+            self.entries = serde_json::from_str(&file_contents).unwrap();
         }
     }
 
