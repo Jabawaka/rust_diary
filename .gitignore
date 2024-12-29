@@ -4,3 +4,6 @@ Cargo.lock
 
 # VSCode files
 *.code-workspace
+
+# Application specific ignores
+diary.json

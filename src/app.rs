@@ -11,56 +11,6 @@ pub struct Entry {
     pub date: Date,
 }
 
-impl Entry {
-    #[cfg(debug_assertions)]
-    pub fn print(&self) {
-        println!(" ---- {} ----", self.date);
-
-        let weight_str;
-        if let Some(weight_kg) = self.weight_kg {
-            weight_str = weight_kg.to_string();
-        } else {
-            weight_str = String::from("--");
-        }
-
-        let waist_str;
-        if let Some(waist_cm) = self.waist_cm {
-            waist_str = waist_cm.to_string();
-        } else {
-            waist_str = String::from("--")
-        }
-
-        println!("  {} kg, {} cm", weight_str, waist_str);
-        println!("  {}", self.content);
-    }
-
-    #[cfg(debug_assertions)]
-    pub fn print_redux(&self) {
-        let content_str;
-        if self.content.len() < 20 {
-            content_str = self.content.as_str();
-        } else {
-            content_str = &self.content[0..20];
-        }
-
-        let weight_str;
-        if let Some(weight_kg) = self.weight_kg {
-            weight_str = weight_kg.to_string();
-        } else {
-            weight_str = String::from("--");
-        }
-
-        let waist_str;
-        if let Some(waist_cm) = self.waist_cm {
-            waist_str = waist_cm.to_string();
-        } else {
-            waist_str = String::from("--")
-        }
-
-        println!(" -- {} -- {} kg, {} cm -- {}", self.date, weight_str, waist_str, content_str);
-    }
-}
-
 pub struct EditString {
     pub prev: String,
     pub next: String,
@@ -162,7 +112,7 @@ pub enum ZoomLevel {
     Month,
 }
 
-pub const DAYS_IN_A_WEEK: u16 = 7;
+pub const GRAPH_POINTS: u8 = 8;
 
 pub struct App {
     pub entries: Vec<Entry>,
@@ -306,6 +256,22 @@ impl App {
         }
     }
 
+    pub fn next_zoom(&mut self) {
+        match self.zoom {
+            ZoomLevel::Day  => self.zoom = ZoomLevel::Week,
+            ZoomLevel::Week => self.zoom = ZoomLevel::Month,
+            _ => {}
+        }
+    }
+
+    pub fn prev_zoom(&mut self) {
+        match self.zoom {
+            ZoomLevel::Week  => self.zoom = ZoomLevel::Day,
+            ZoomLevel::Month => self.zoom = ZoomLevel::Week,
+            _ => {}
+        }
+    }
+
     pub fn get_entry_by_date(&self, date: Date) -> Option<Entry> {
         if let Some(entry) = self.entries.iter().find(|entry| entry.date == date) {
             return Some(entry.clone());
@@ -342,16 +308,16 @@ impl App {
 
     pub fn get_weights(&self, date: Date, zoom_level: ZoomLevel) -> Vec<(f64, f64)> {
         let mut weights = Vec::new();
+        let mut x_axis = 0.0;
 
         match zoom_level {
             ZoomLevel::Day => {
                 let mut curr_day = date.prev_occurrence(date.weekday());
-                let mut x_axis = 0.0;
 
                 while curr_day <= date {
                     if let Some(entry) = self.get_entry_by_date(curr_day) {
-                        if let Some(weight) = entry.weight_kg {
-                            weights.push((x_axis, weight as f64));
+                        if let Some(weight_kg) = entry.weight_kg {
+                            weights.push((x_axis, weight_kg as f64));
                         }
                     }
 
@@ -360,6 +326,41 @@ impl App {
                 }
             }
             ZoomLevel::Week => {
+                let mut curr_week = GRAPH_POINTS;
+
+                while curr_week > 0 {
+                    let mut sum_weight_kg = 0.0;
+                    let mut num_points = 0;
+
+                    let mut curr_day;
+                    let last_day;
+                    if curr_week > 1 {
+                        curr_day = date.nth_prev_occurrence(date.weekday(), curr_week).next_day().unwrap();
+                        last_day = date.nth_prev_occurrence(date.weekday(), curr_week - 1);
+                    } else {
+                        curr_day = date.prev_occurrence(date.weekday()).next_day().unwrap();
+                        last_day = date;
+                    }
+
+                    while curr_day <= last_day {
+                        if let Some(entry) = self.get_entry_by_date(curr_day) {
+                            if let Some(weight_kg) = entry.weight_kg {
+                                sum_weight_kg = sum_weight_kg + weight_kg;
+                                num_points = num_points + 1;
+                            }
+                        }
+
+                        curr_day = curr_day.next_day().unwrap()
+                    }
+
+                    if num_points > 0 {
+                        weights.push((x_axis, (sum_weight_kg as f64 / (num_points as f64))));
+                    } else {
+                        weights.push((x_axis, 0.0));
+                    }
+                    curr_week = curr_week - 1;
+                    x_axis = x_axis + 1.0;
+                }
             }
             ZoomLevel::Month => {
             }
@@ -370,11 +371,11 @@ impl App {
 
     pub fn get_waists(&self, date: Date, zoom_level: ZoomLevel) -> Vec<(f64, f64)> {
         let mut waists = Vec::new();
+        let mut x_axis = 0.0;
 
         match zoom_level {
             ZoomLevel::Day => {
                 let mut curr_day = date.prev_occurrence(date.weekday());
-                let mut x_axis = 0.0;
 
                 while curr_day <= date {
                     if let Some(entry) = self.get_entry_by_date(curr_day) {
@@ -388,17 +389,46 @@ impl App {
                 }
             }
             ZoomLevel::Week => {
+                let mut curr_week = GRAPH_POINTS;
+
+                while curr_week > 0 {
+                    let mut sum_waist_cm = 0.0;
+                    let mut num_points = 0;
+
+                    let mut curr_day;
+                    let last_day;
+                    if curr_week > 1 {
+                        curr_day = date.nth_prev_occurrence(date.weekday(), curr_week).next_day().unwrap();
+                        last_day = date.nth_prev_occurrence(date.weekday(), curr_week - 1);
+                    } else {
+                        curr_day = date.prev_occurrence(date.weekday()).next_day().unwrap();
+                        last_day = date;
+                    }
+
+                    while curr_day <= last_day {
+                        if let Some(entry) = self.get_entry_by_date(curr_day) {
+                            if let Some(waist_cm) = entry.waist_cm {
+                                sum_waist_cm = sum_waist_cm + waist_cm;
+                                num_points = num_points + 1;
+                            }
+                        }
+
+                        curr_day = curr_day.next_day().unwrap()
+                    }
+
+                    if num_points > 0 {
+                        waists.push((x_axis, (sum_waist_cm as f64 / (num_points as f64))));
+                    } else {
+                        waists.push((x_axis, 0.0));
+                    }
+                    curr_week = curr_week - 1;
+                    x_axis = x_axis + 1.0;
+                }
             }
             ZoomLevel::Month => {
             }
         }
 
         waists
-    }
-
-    pub fn print_entries(&self) {
-        for entry in self.entries.iter() {
-            entry.print_redux();
-        }
     }
 }

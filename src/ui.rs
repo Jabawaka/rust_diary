@@ -1,5 +1,3 @@
-use std::time::Instant;
-
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     prelude::{Stylize, Margin},
@@ -15,7 +13,7 @@ use ratatui::{
 
 use time::format_description;
 
-use crate::app::{App, CurrScreen, ZoomLevel, EditValue};
+use crate::app::{App, CurrScreen, EditValue, ZoomLevel, GRAPH_POINTS};
 
 
 pub fn ui(frame: &mut Frame, app: &mut App) {
@@ -79,6 +77,16 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
             }
         }
         ZoomLevel::Week => {
+            let mut curr_week = GRAPH_POINTS - 1;
+            let mut date;
+
+            while curr_week > 0 {
+                date = app.curr_date.nth_prev_occurrence(app.curr_date.weekday(), curr_week);
+                labels.push(date.day().to_string());
+                curr_week = curr_week - 1;
+            }
+
+            labels.push(app.curr_date.day().to_string());
         }
         ZoomLevel::Month => {
         }

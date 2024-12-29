@@ -1,5 +1,4 @@
 use std::{error::Error, io};
-use std::time::Instant;
 
 use crossterm::event;
 use ratatui::{
@@ -12,14 +11,12 @@ use ratatui::{
     Terminal,
 };
 
-use time::{Date, Month};
-
 
 mod app;
 mod ui;
 
 use crate::{
-    app::{App, CurrScreen, Entry},
+    app::{App, CurrScreen},
     ui::ui,
 };
 
@@ -65,6 +62,8 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> io::Result<
                     KeyCode::Char('l') | KeyCode::Right => app.curr_date = app.curr_date.next_day().unwrap(),
                     KeyCode::Char('j') | KeyCode::Up    => app.curr_date = app.curr_date.prev_occurrence(app.curr_date.weekday()),
                     KeyCode::Char('k') | KeyCode::Down  => app.curr_date = app.curr_date.next_occurrence(app.curr_date.weekday()),
+                    KeyCode::Char('>') => app.next_zoom(),
+                    KeyCode::Char('<') => app.prev_zoom(),
                     _ => {},
                 }
                 CurrScreen::Editing => match key.code {
