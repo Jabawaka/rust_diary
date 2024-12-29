@@ -66,6 +66,7 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
     // Weight graph
     let weight_pts = app.get_weights(app.curr_date, app.zoom);
 
+    let zoom_str;
     let mut labels = Vec::new();
     match app.zoom {
         ZoomLevel::Day => {
@@ -75,6 +76,8 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
                 labels.push(date.day().to_string());
                 date = date.next_day().unwrap();
             }
+
+            zoom_str = String::from("Day");
         }
         ZoomLevel::Week => {
             let mut curr_week = GRAPH_POINTS - 1;
@@ -87,8 +90,11 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
             }
 
             labels.push(app.curr_date.day().to_string());
+
+            zoom_str = String::from("Week");
         }
         ZoomLevel::Month => {
+            zoom_str = String::from("Month");
         }
     }
 
@@ -124,6 +130,7 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
         .bounds([60.0, 100.0]);
 
     let waist_data = Dataset::default()
+        .name(zoom_str)
         .marker(Marker::Braille)
         .style(Style::default().fg(Color::Cyan))
         .graph_type(GraphType::Line)
