@@ -2,10 +2,11 @@
 name = "rust_diary"
 version = "0.1.0"
 edition = "2021"
+authors = ["Sergio Rubio srubio@jabawaka.com"]
+publish = false
 
 [dependencies]
-crossterm = "0.28.1"
-time = { version = "0.3.37", features = ["formatting", "serde"] }
-ratatui = { version = "0.29.0", features = ["all-widgets"] }
-serde = { version = "1.0", features = ["derive"] }
+eframe = { version = "0.31", features = ["persistence"] }
+serde = { version = "1", features = ["derive"] }
+time = { version = "0.3.37", features = ["local-offset", "formatting", "serde"] }
 serde_json = "1.0.134"
