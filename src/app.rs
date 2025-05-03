@@ -1,46 +1,35 @@
-use std::cmp::Ordering;
 use std::fs;
 
-use eframe::egui;
+use eframe::egui::{self, TextEdit, Label, Sense, DragValue};
 use time::{Date, OffsetDateTime, format_description};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Entry {
     pub content: String,
-    pub weight_kg: Option<f32>,
-    pub waist_cm: Option<f32>,
+    pub weight_kg: f32,
+    pub waist_cm: f32,
     pub date: Date,
+
+    #[serde(default)]
+    pub edit: bool,
 }
 
-pub enum CurrScreen {
+
+pub enum Mode {
     Main,
-    Editing,
-    DiscardChanges,
+    Edit,
 }
 
-#[derive(PartialEq)]
-pub enum EditValue {
-    Content,
-    Weight,
-    Waist
-}
-
-#[derive(Copy, Clone)]
-pub enum ZoomLevel {
-    Day,
-    Week,
-    Month,
-}
-
-pub const GRAPH_POINTS: u8 = 8;
 
 pub struct MyApp {
     pub entries: Vec<Entry>,
     pub curr_date: Date,
-    pub curr_screen: CurrScreen,
-    pub edit_value: EditValue,
-    pub zoom: ZoomLevel,
+    pub mode: Mode,
+
+    pub first_time_edit: bool,
+    pub scale_factor: f32,
+    pub path_to_file: String,
 }
 
 impl MyApp {
@@ -48,9 +37,11 @@ impl MyApp {
         let mut app = MyApp {
             entries: vec![],
             curr_date: OffsetDateTime::now_local().unwrap().date(),
-            curr_screen: CurrScreen::Main,
-            edit_value: EditValue::Content,
-            zoom: ZoomLevel::Day,
+            mode: Mode::Main,
+
+            first_time_edit: false,
+            scale_factor: 2.0,
+            path_to_file: String::from("diary.json"),
         };
         app.load_from_file();
 
@@ -58,29 +49,12 @@ impl MyApp {
     }
 
     pub fn save_to_file(&self) {
-        let file = String::from("diary.json");
-        fs::write(file, &serde_json::to_vec_pretty(&self.entries).expect("DB should be writeable")).expect("DB should be writeable");
+        fs::write(&self.path_to_file, &serde_json::to_vec_pretty(&self.entries).expect("DB should be writeable")).expect("DB should be writeable");
     }
 
     pub fn load_from_file(&mut self) {
-        if let Ok(file_contents) = fs::read_to_string("diary.json") {
+        if let Ok(file_contents) = fs::read_to_string(&self.path_to_file){
             self.entries = serde_json::from_str(&file_contents).unwrap();
-        }
-    }
-
-    pub fn next_zoom(&mut self) {
-        match self.zoom {
-            ZoomLevel::Day  => self.zoom = ZoomLevel::Week,
-            ZoomLevel::Week => self.zoom = ZoomLevel::Month,
-            _ => {}
-        }
-    }
-
-    pub fn prev_zoom(&mut self) {
-        match self.zoom {
-            ZoomLevel::Week  => self.zoom = ZoomLevel::Day,
-            ZoomLevel::Month => self.zoom = ZoomLevel::Week,
-            _ => {}
         }
     }
 
@@ -91,183 +65,151 @@ impl MyApp {
             return None;
         }
     }
-
-    pub fn save_entry(&mut self, entry_to_save: Entry) {
-        // Loop to find if the entry already exists
-        let mut index = 0;
-
-        if self.entries.len() > 0 {
-            while index < self.entries.len() {
-                if self.entries[index].date == entry_to_save.date {
-                    // Modify the already existing entry and exit the function
-                    self.entries[index] = entry_to_save.clone();
-
-                    return;
-                } else if self.entries[index].date.cmp(&entry_to_save.date) == Ordering::Greater {
-                    // Insert the value at the index and exit the function
-                    self.entries.insert(index, entry_to_save);
-
-                    return;
-                }
-
-                index = index + 1;
-            }
-        }
-
-        // If the loop returns, the entry shall be added at the end
-        self.entries.push(entry_to_save);
-    }
-
-    pub fn get_weights(&self, date: Date, zoom_level: ZoomLevel) -> Vec<(f64, f64)> {
-        let mut weights = Vec::new();
-        let mut x_axis = 0.0;
-
-        match zoom_level {
-            ZoomLevel::Day => {
-                let mut curr_day = date.prev_occurrence(date.weekday());
-
-                while curr_day <= date {
-                    if let Some(entry) = self.get_entry_by_date(curr_day) {
-                        if let Some(weight_kg) = entry.weight_kg {
-                            weights.push((x_axis, weight_kg as f64));
-                        }
-                    }
-
-                    curr_day = curr_day.next_day().unwrap();
-                    x_axis = x_axis + 1.0;
-                }
-            }
-            ZoomLevel::Week => {
-                let mut curr_week = GRAPH_POINTS;
-
-                while curr_week > 0 {
-                    let mut sum_weight_kg = 0.0;
-                    let mut num_points = 0;
-
-                    let mut curr_day;
-                    let last_day;
-                    if curr_week > 1 {
-                        curr_day = date.nth_prev_occurrence(date.weekday(), curr_week).next_day().unwrap();
-                        last_day = date.nth_prev_occurrence(date.weekday(), curr_week - 1);
-                    } else {
-                        curr_day = date.prev_occurrence(date.weekday()).next_day().unwrap();
-                        last_day = date;
-                    }
-
-                    while curr_day <= last_day {
-                        if let Some(entry) = self.get_entry_by_date(curr_day) {
-                            if let Some(weight_kg) = entry.weight_kg {
-                                sum_weight_kg = sum_weight_kg + weight_kg;
-                                num_points = num_points + 1;
-                            }
-                        }
-
-                        curr_day = curr_day.next_day().unwrap()
-                    }
-
-                    if num_points > 0 {
-                        weights.push((x_axis, (sum_weight_kg as f64 / (num_points as f64))));
-                    } else {
-                        weights.push((x_axis, 0.0));
-                    }
-                    curr_week = curr_week - 1;
-                    x_axis = x_axis + 1.0;
-                }
-            }
-            ZoomLevel::Month => {
-            }
-        }
-
-        weights
-    }
-
-    pub fn get_waists(&self, date: Date, zoom_level: ZoomLevel) -> Vec<(f64, f64)> {
-        let mut waists = Vec::new();
-        let mut x_axis = 0.0;
-
-        match zoom_level {
-            ZoomLevel::Day => {
-                let mut curr_day = date.prev_occurrence(date.weekday());
-
-                while curr_day <= date {
-                    if let Some(entry) = self.get_entry_by_date(curr_day) {
-                        if let Some(waist) = entry.waist_cm {
-                            waists.push((x_axis, waist as f64));
-                        }
-                    }
-
-                    curr_day = curr_day.next_day().unwrap();
-                    x_axis = x_axis + 1.0;
-                }
-            }
-            ZoomLevel::Week => {
-                let mut curr_week = GRAPH_POINTS;
-
-                while curr_week > 0 {
-                    let mut sum_waist_cm = 0.0;
-                    let mut num_points = 0;
-
-                    let mut curr_day;
-                    let last_day;
-                    if curr_week > 1 {
-                        curr_day = date.nth_prev_occurrence(date.weekday(), curr_week).next_day().unwrap();
-                        last_day = date.nth_prev_occurrence(date.weekday(), curr_week - 1);
-                    } else {
-                        curr_day = date.prev_occurrence(date.weekday()).next_day().unwrap();
-                        last_day = date;
-                    }
-
-                    while curr_day <= last_day {
-                        if let Some(entry) = self.get_entry_by_date(curr_day) {
-                            if let Some(waist_cm) = entry.waist_cm {
-                                sum_waist_cm = sum_waist_cm + waist_cm;
-                                num_points = num_points + 1;
-                            }
-                        }
-
-                        curr_day = curr_day.next_day().unwrap()
-                    }
-
-                    if num_points > 0 {
-                        waists.push((x_axis, (sum_waist_cm as f64 / (num_points as f64))));
-                    } else {
-                        waists.push((x_axis, 0.0));
-                    }
-                    curr_week = curr_week - 1;
-                    x_axis = x_axis + 1.0;
-                }
-            }
-            ZoomLevel::Month => {
-            }
-        }
-
-        waists
-    }
 }
 
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         // Variables used in all layouts
-        let weight_vec: Vec<f32>;
-        let waist_vec: Vec<f32>;
+        //let weight_vec: Vec<f32>;
+        //let waist_vec: Vec<f32>;
 
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.vertical(|ui| {
                 egui::ScrollArea::vertical().show(ui, |ui| {
                     // Section with diary entries
-                    for entry in &mut self.entries {
-                        let format = format_description::parse("[day]-[month]-[year]").unwrap();
-                        let date_string = entry.date.format(&format).unwrap();
+                    match self.mode {
+                        Mode::Main => {
+                            // Handle zooming
+                            if ui.input(|i| i.key_pressed(egui::Key::ArrowUp)) {
+                                self.scale_factor += 0.2;
 
-                        if entry.content.len() > 0 {
-                            ui.heading(date_string);
-                            ui.label(&entry.content);
-                            ui.add_space(10.0);
+                                if self.scale_factor > 3.0 {
+                                    self.scale_factor = 3.0;
+                                }
+
+                                ctx.set_pixels_per_point(self.scale_factor);
+                            }
+                            if ui.input(|i| i.key_pressed(egui::Key::ArrowDown)) {
+                                self.scale_factor -= 0.2;
+
+                                if self.scale_factor < 1.0 {
+                                    self.scale_factor = 1.0;
+                                }
+
+                                ctx.set_pixels_per_point(self.scale_factor);
+                            }
+
+                            // If there is no entry for today, add a prompt for it
+                            if let None = self.get_entry_by_date(self.curr_date) {
+                                let format = format_description::parse("[day]-[month]-[year]").unwrap();
+                                let date_string = self.curr_date.format(&format).unwrap();
+                                ui.heading(date_string);
+                                if ui.add(Label::new("Add entry for today!").sense(Sense::click())).clicked() {
+                                    let new_entry = Entry {
+                                        content: String::new(),
+                                        weight_kg: 0.0,
+                                        waist_cm: 0.0,
+                                        date: self.curr_date,
+                                        edit: true,
+                                    };
+
+                                    self.entries.insert(0, new_entry);
+
+                                    self.mode = Mode::Edit;
+                                    self.first_time_edit = true;
+                                }
+
+                                ui.add_space(10.0);
+                            }
+
+                            for entry in &mut self.entries {
+                                let format = format_description::parse("[day]-[month]-[year]").unwrap();
+                                let date_string = entry.date.format(&format).unwrap();
+
+                                ui.horizontal(|ui| {
+                                    let mut weight_string = String::from("--");
+
+                                    if entry.weight_kg != 0.0 {
+                                        weight_string = format!("{:.1}", entry.weight_kg);
+                                    }
+                                    weight_string.push_str(" kg");
+
+                                    let mut waist_string = String::from("--");
+                                    if entry.waist_cm != 0.0 {
+                                        waist_string = format!("{:.1}", entry.waist_cm);
+                                    }
+                                    waist_string.push_str(" cm");
+
+                                    ui.heading(date_string);
+                                    ui.label(weight_string);
+                                    ui.label(waist_string);
+                                });
+
+                                if entry.content.len() > 0 {
+                                    if ui.add(Label::new(&entry.content).sense(Sense::click())).clicked() {
+                                        entry.edit = true;
+                                        self.mode = Mode::Edit;
+                                        self.first_time_edit = true;
+                                    }
+                                    ui.add_space(10.0);
+                                }
+                            }
+                        },
+
+                        Mode::Edit => {
+                            for entry in &mut self.entries {
+                                let format = format_description::parse("[day]-[month]-[year]").unwrap();
+                                let date_string = entry.date.format(&format).unwrap();
+
+                                if entry.edit {
+                                    ui.horizontal(|ui| {
+                                        ui.heading(date_string);
+
+                                        ui.add(DragValue::new(&mut entry.weight_kg).speed(0.1));
+                                        ui.label(" kg");
+                                        ui.add(DragValue::new(&mut entry.waist_cm).speed(0.1));
+                                        ui.label(" cm");
+                                    });
+
+                                    let response = ui.add_sized([ui.available_width(), 1.0], TextEdit::multiline(&mut entry.content));
+
+                                    if self.first_time_edit {
+                                        response.request_focus();
+                                        self.first_time_edit = false;
+                                    }
+
+                                    if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Escape)) {
+                                        self.mode = Mode::Main;
+                                        entry.edit = false;
+                                    }
+                                } else if entry.content.len() > 0 {
+                                    ui.horizontal(|ui| {
+                                        ui.heading(date_string);
+
+                                        let mut weight_string = String::from("--");
+
+                                        if entry.weight_kg != 0.0 {
+                                            weight_string = format!("{:.1}", entry.weight_kg);
+                                        }
+                                        weight_string.push_str(" kg");
+
+                                        let mut waist_string = String::from("--");
+                                        if entry.waist_cm != 0.0 {
+                                            waist_string = format!("{:.1}", entry.waist_cm);
+                                        }
+                                        waist_string.push_str(" cm");
+                                    });
+
+                                    ui.label(&entry.content);
+                                }
+
+                                ui.add_space(10.0);
+                            }
                         }
                     }
+                });
 
                     // Section with graphs
-                });
             });
         });
     }

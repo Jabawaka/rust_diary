@@ -1,5 +1,3 @@
-use std::{error::Error, io};
-
 mod app;
 
 use crate::app::MyApp;
