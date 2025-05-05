@@ -16,12 +16,14 @@ pub struct Entry {
 }
 
 
+#[derive(serde::Serialize, serde::Deserialize)]
 pub enum Mode {
     Main,
     Edit,
 }
 
 
+#[derive(serde::Serialize, serde::Deserialize)]
 pub struct MyApp {
     pub entries: Vec<Entry>,
     pub curr_date: Date,
@@ -33,8 +35,8 @@ pub struct MyApp {
 }
 
 impl MyApp {
-    pub fn new(_cc: &eframe::CreationContext<'_>) -> Self {
-        let mut app = MyApp {
+    fn default() -> Self {
+        MyApp {
             entries: vec![],
             curr_date: OffsetDateTime::now_local().unwrap().date(),
             mode: Mode::Main,
@@ -42,10 +44,18 @@ impl MyApp {
             first_time_edit: false,
             scale_factor: 2.0,
             path_to_file: String::from("diary.json"),
-        };
-        app.load_from_file();
-
-        app
+        }
+    }
+    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+        if let Some(storage) = cc.storage {
+            if let Some(app) = eframe::get_value(storage, eframe::APP_KEY) {
+                app
+            } else {
+                MyApp::default()
+            }
+        } else {
+            MyApp::default()
+        }
     }
 
     pub fn save_to_file(&self) {
@@ -212,5 +222,13 @@ impl eframe::App for MyApp {
                     // Section with graphs
             });
         });
+    }
+
+    fn save(&mut self, storage: &mut dyn eframe::Storage) {
+        eframe::set_value(storage, eframe::APP_KEY, self);
+    }
+
+    fn auto_save_interval(&self) -> std::time::Duration {
+        std::time::Duration::from_secs(30)
     }
 }
