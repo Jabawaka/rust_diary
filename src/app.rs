@@ -48,7 +48,8 @@ impl MyApp {
     }
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         if let Some(storage) = cc.storage {
-            if let Some(app) = eframe::get_value(storage, eframe::APP_KEY) {
+            if let Some(mut app) = eframe::get_value::<MyApp>(storage, eframe::APP_KEY) {
+                app.curr_date = OffsetDateTime::now_local().unwrap().date();
                 app
             } else {
                 MyApp::default()
