@@ -209,6 +209,9 @@ impl eframe::App for MyApp {
                                             waist_string = format!("{:.1}", entry.waist_cm);
                                         }
                                         waist_string.push_str(" cm");
+
+                                        ui.label(weight_string);
+                                        ui.label(waist_string);
                                     });
 
                                     ui.label(&entry.content);
