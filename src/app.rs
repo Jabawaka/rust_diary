@@ -1,6 +1,6 @@
 use std::fs;
 
-use eframe::egui::{self, TextEdit, Label, Sense, DragValue};
+use eframe::egui::{self, TextEdit, Label, Sense, DragValue, RichText};
 use time::{Date, OffsetDateTime, format_description};
 use serde::{Deserialize, Serialize};
 
@@ -151,7 +151,11 @@ impl eframe::App for MyApp {
                                     }
                                     waist_string.push_str(" cm");
 
-                                    ui.heading(date_string);
+                                    if ui.add(Label::new(RichText::new(date_string).heading()).sense(Sense::click())).clicked() {
+                                        entry.edit = true;
+                                        self.mode = Mode::Edit;
+                                        self.first_time_edit = true;
+                                    }
                                     ui.label(weight_string);
                                     ui.label(waist_string);
                                 });
@@ -193,7 +197,7 @@ impl eframe::App for MyApp {
                                         self.mode = Mode::Main;
                                         entry.edit = false;
                                     }
-                                } else if entry.content.len() > 0 {
+                                } else if entry.content.len() > 0 || entry.weight_kg > 0.0 || entry.waist_cm > 0.0 {
                                     ui.horizontal(|ui| {
                                         ui.heading(date_string);
 
@@ -214,7 +218,9 @@ impl eframe::App for MyApp {
                                         ui.label(waist_string);
                                     });
 
-                                    ui.label(&entry.content);
+                                    if entry.content.len() > 0 {
+                                        ui.label(&entry.content);
+                                    }
                                 }
 
                                 ui.add_space(10.0);
