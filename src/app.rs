@@ -80,6 +80,11 @@ impl MyApp {
 
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        // Check date
+        if OffsetDateTime::now_local().unwrap().date() > self.curr_date {
+            self.curr_date = OffsetDateTime::now_local().unwrap().date();
+        }
+
         // Variables used in all layouts
         //let weight_vec: Vec<f32>;
         //let waist_vec: Vec<f32>;
