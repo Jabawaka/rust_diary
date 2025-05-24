@@ -60,9 +60,7 @@ impl Section {
 #[derive(serde::Serialize, serde::Deserialize)]
 pub enum Mode {
     Main,
-    Edit,
-    EditTask,
-    EditSection
+    Edit
 }
 
 
@@ -126,6 +124,18 @@ impl MyApp {
     pub fn add_section(&mut self, title: &str, edit: bool) {
         self.sections.push(Section {title: title.to_string(), tasks: vec![], edit, delete: false});
     }
+
+    pub fn clean_tasks(&mut self) {
+        for section in &mut self.sections {
+            section.tasks.retain(|t| t.done != true);
+
+            if section.tasks.len() == 0 {
+                section.delete = true;
+            }
+        }
+
+        self.sections.retain(|t| t.delete != true);
+    }
 }
 
 impl eframe::App for MyApp {
@@ -144,12 +154,36 @@ impl eframe::App for MyApp {
                         // the checkboxes to mark tasks as completed and add new Tasks
                         // and Sections
                         Mode::Main => {
+                            // Handle zooming
+                            if ui.input(|i| i.key_pressed(egui::Key::ArrowUp)) {
+                                self.scale_factor += 0.2;
+
+                                if self.scale_factor > 3.0 {
+                                    self.scale_factor = 3.0;
+                                }
+
+                                ctx.set_pixels_per_point(self.scale_factor);
+                            }
+                            if ui.input(|i| i.key_pressed(egui::Key::ArrowDown)) {
+                                self.scale_factor -= 0.2;
+
+                                if self.scale_factor < 1.0 {
+                                    self.scale_factor = 1.0;
+                                }
+
+                                ctx.set_pixels_per_point(self.scale_factor);
+                            }
+
+                            if ui.input(|i| i.key_pressed(egui::Key::C)) {
+                                self.clean_tasks();
+                            }
+
                             for section in &mut self.sections {
                                 // Render Section title as clickable, if clicked edit it
                                 if ui.add(Label::new(RichText::new(&section.title).heading()).sense(Sense::click())).clicked() {
                                     // Enter edit section mode
                                     section.edit = true;
-                                    self.mode = Mode::EditSection;
+                                    self.mode = Mode::Edit;
                                 }
 
                                 // Render Tasks as clickable, if clicked edit it
@@ -158,7 +192,7 @@ impl eframe::App for MyApp {
                                         ui.checkbox(&mut task.done, "");
                                         if ui.add(Label::new(&task.text).sense(Sense::click())).clicked() {
                                             task.edit = true;
-                                            self.mode = Mode::EditTask;
+                                            self.mode = Mode::Edit;
                                             self.first_time_edit = true;
                                         }
                                     });
@@ -169,7 +203,7 @@ impl eframe::App for MyApp {
                                 if response.clicked() {
                                     let empty = String::new();
                                     section.add_task(&empty, true);
-                                    self.mode = Mode::EditTask;
+                                    self.mode = Mode::Edit;
                                     self.first_time_edit = true;
                                 }
                             }
@@ -180,17 +214,36 @@ impl eframe::App for MyApp {
                             if response.clicked() {
                                 let empty = String::new();
                                 self.add_section(&empty, true);
-                                self.mode = Mode::EditSection;
+                                self.mode = Mode::Edit;
                                 self.first_time_edit = true;
                             }
                         },
 
-                        // In this mode all Sections and Tasks are rendered as plain
-                        // labels except for the Task being edited which should be an
-                        // edit box. This mode is also entered when a new task is added
-                        Mode::EditTask => {
+                        Mode::Edit => {
                             for section in &mut self.sections {
-                                ui.heading(&section.title);
+                                if section.edit {
+                                    ui.horizontal(|ui| {
+                                        let response = ui.add(TextEdit::singleline(&mut section.title));
+
+                                        if self.first_time_edit {
+                                            response.request_focus();
+                                            self.first_time_edit = false;
+                                        }
+
+                                        if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter) || i.key_pressed(egui::Key::Escape)) {
+                                            self.mode = Mode::Main;
+                                            section.edit = false;
+                                        }
+
+                                        if ui.button("-").clicked() {
+                                            self.mode = Mode::Main;
+                                            section.tasks.clear();
+                                            section.delete = true;
+                                        }
+                                    });
+                                } else {
+                                    ui.heading(&section.title);
+                                }
 
                                 for task in &mut section.tasks {
                                     ui.horizontal(|ui| {
@@ -226,108 +279,42 @@ impl eframe::App for MyApp {
                             }
                             ui.separator();
                         },
-
-                        // In this mode all Sections and Tasks are rendered as plain
-                        // labels except for the Section being edited which should be an
-                        // edit box
-                        Mode::EditSection => {
-                            for section in &mut self.sections {
-                                if section.edit {
-                                    ui.horizontal(|ui| {
-                                        let response = ui.add(TextEdit::singleline(&mut section.title));
-
-                                        if self.first_time_edit {
-                                            response.request_focus();
-                                            self.first_time_edit = false;
-                                        }
-
-                                        if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter) || i.key_pressed(egui::Key::Escape)) {
-                                            self.mode = Mode::Main;
-                                            section.edit = false;
-                                        }
-
-                                        if ui.button("-").clicked() {
-                                            self.mode = Mode::Main;
-                                            section.tasks.clear();
-                                            section.delete = true;
-                                        }
-                                    });
-                                } else {
-                                    ui.heading(&section.title);
-                                }
-
-                                for task in &mut section.tasks {
-                                    ui.horizontal(|ui| {
-                                        ui.checkbox(&mut task.done, "");
-                                        ui.label(&task.text);
-                                    });
-                                }
-
-                                ui.add_space(12.0);
-                            }
-
-                            // Delete any section that was set to be deleted
-                            self.sections.retain(|s| s.delete != true);
-
-                            ui.separator();
-                        },
-
-                        _ => {}
                     }
                 });
             });
         });
 
+        // Diary section
         egui::CentralPanel::default().show(ctx, |ui| {
-            // Actual rendering
             ui.vertical(|ui| {
                 // Section with diary entries
                 egui::ScrollArea::vertical().show(ui, |ui| {
+                    // If there is no entry for today, add a prompt for it
+                    if let None = self.get_entry_by_date(self.curr_date) {
+                        let format = format_description::parse("[day]-[month]-[year]").unwrap();
+                        let date_string = self.curr_date.format(&format).unwrap();
+                        ui.heading(date_string);
+                        if ui.add(Label::new("Add entry for today!").sense(Sense::click())).clicked() {
+                            let new_entry = Entry {
+                                content: String::new(),
+                                weight_kg: 0.0,
+                                waist_cm: 0.0,
+                                date: self.curr_date,
+                                edit: true,
+                            };
+
+                            self.entries.insert(0, new_entry);
+
+                            self.mode = Mode::Edit;
+                            self.first_time_edit = true;
+                        }
+
+                        ui.add_space(10.0);
+                    }
+
+                    // Rest of entries
                     match self.mode {
                         Mode::Main => {
-                            // Handle zooming
-                            if ui.input(|i| i.key_pressed(egui::Key::ArrowUp)) {
-                                self.scale_factor += 0.2;
-
-                                if self.scale_factor > 3.0 {
-                                    self.scale_factor = 3.0;
-                                }
-
-                                ctx.set_pixels_per_point(self.scale_factor);
-                            }
-                            if ui.input(|i| i.key_pressed(egui::Key::ArrowDown)) {
-                                self.scale_factor -= 0.2;
-
-                                if self.scale_factor < 1.0 {
-                                    self.scale_factor = 1.0;
-                                }
-
-                                ctx.set_pixels_per_point(self.scale_factor);
-                            }
-
-                            // If there is no entry for today, add a prompt for it
-                            if let None = self.get_entry_by_date(self.curr_date) {
-                                let format = format_description::parse("[day]-[month]-[year]").unwrap();
-                                let date_string = self.curr_date.format(&format).unwrap();
-                                ui.heading(date_string);
-                                if ui.add(Label::new("Add entry for today!").sense(Sense::click())).clicked() {
-                                    let new_entry = Entry {
-                                        content: String::new(),
-                                        weight_kg: 0.0,
-                                        waist_cm: 0.0,
-                                        date: self.curr_date,
-                                        edit: true,
-                                    };
-
-                                    self.entries.insert(0, new_entry);
-
-                                    self.mode = Mode::Edit;
-                                    self.first_time_edit = true;
-                                }
-
-                                ui.add_space(10.0);
-                            }
-
                             for entry in &mut self.entries {
                                 let format = format_description::parse("[day]-[month]-[year]").unwrap();
                                 let date_string = entry.date.format(&format).unwrap();
