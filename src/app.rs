@@ -15,16 +15,60 @@ pub struct Entry {
     pub edit: bool,
 }
 
+#[derive(serde::Serialize, serde::Deserialize)]
+struct Task {
+    text: String,
+    done: bool,
+    edit: bool,
+    delete: bool,
+}
+
+impl Task {
+    fn default() -> Self {
+        Task {
+            text: String::from("New task"),
+            done: false,
+            edit: false,
+            delete: false,
+        }
+    }
+}
+
+#[derive(serde::Serialize, serde::Deserialize)]
+struct Section {
+    title: String,
+    tasks: Vec<Task>,
+    edit: bool,
+    delete: bool,
+}
+
+impl Section {
+    fn default() -> Self {
+        Section {
+            title: String::from("New Section"),
+            tasks: vec![Task::default()],
+            edit: true,
+            delete: false,
+        }
+    }
+
+    fn add_task(&mut self, task: &str, edit: bool) {
+        self.tasks.push(Task {text: task.to_string(), done: false, edit, delete: false});
+    }
+}
 
 #[derive(serde::Serialize, serde::Deserialize)]
 pub enum Mode {
     Main,
     Edit,
+    EditTask,
+    EditSection
 }
 
 
 #[derive(serde::Serialize, serde::Deserialize)]
 pub struct MyApp {
+    pub sections: Vec<Section>,
     pub entries: Vec<Entry>,
     pub curr_date: Date,
     pub mode: Mode,
@@ -37,6 +81,7 @@ pub struct MyApp {
 impl MyApp {
     fn default() -> Self {
         MyApp {
+            sections: vec![Section::default()],
             entries: vec![],
             curr_date: OffsetDateTime::now_local().unwrap().date(),
             mode: Mode::Main,
@@ -76,6 +121,11 @@ impl MyApp {
             return None;
         }
     }
+
+
+    pub fn add_section(&mut self, title: &str, edit: bool) {
+        self.sections.push(Section {title: title.to_string(), tasks: vec![], edit, delete: false});
+    }
 }
 
 impl eframe::App for MyApp {
@@ -85,14 +135,154 @@ impl eframe::App for MyApp {
             self.curr_date = OffsetDateTime::now_local().unwrap().date();
         }
 
-        // Variables used in all layouts
-        //let weight_vec: Vec<f32>;
-        //let waist_vec: Vec<f32>;
+        egui::SidePanel::right("ToDo").show(ctx, |ui| {
+            // ToDo section
+            egui::ScrollArea::vertical().show(ui, |ui| {
+                ui.vertical(|ui| {
+                    match self.mode {
+                        // In this mode you can click a Task or a Section to edit it,
+                        // the checkboxes to mark tasks as completed and add new Tasks
+                        // and Sections
+                        Mode::Main => {
+                            for section in &mut self.sections {
+                                // Render Section title as clickable, if clicked edit it
+                                if ui.add(Label::new(RichText::new(&section.title).heading()).sense(Sense::click())).clicked() {
+                                    // Enter edit section mode
+                                    section.edit = true;
+                                    self.mode = Mode::EditSection;
+                                }
+
+                                // Render Tasks as clickable, if clicked edit it
+                                for task in &mut section.tasks {
+                                    ui.horizontal(|ui| {
+                                        ui.checkbox(&mut task.done, "");
+                                        if ui.add(Label::new(&task.text).sense(Sense::click())).clicked() {
+                                            task.edit = true;
+                                            self.mode = Mode::EditTask;
+                                            self.first_time_edit = true;
+                                        }
+                                    });
+                                }
+
+                                // Render an invisible Task used to add a Task
+                                let response = ui.add(Label::new("                             "));
+                                if response.clicked() {
+                                    let empty = String::new();
+                                    section.add_task(&empty, true);
+                                    self.mode = Mode::EditTask;
+                                    self.first_time_edit = true;
+                                }
+                            }
+                            ui.separator();
+
+                            // Render an invisible Section used to add a Section
+                            let response = ui.add(Label::new(RichText::new("                          ").heading()));
+                            if response.clicked() {
+                                let empty = String::new();
+                                self.add_section(&empty, true);
+                                self.mode = Mode::EditSection;
+                                self.first_time_edit = true;
+                            }
+                        },
+
+                        // In this mode all Sections and Tasks are rendered as plain
+                        // labels except for the Task being edited which should be an
+                        // edit box. This mode is also entered when a new task is added
+                        Mode::EditTask => {
+                            for section in &mut self.sections {
+                                ui.heading(&section.title);
+
+                                for task in &mut section.tasks {
+                                    ui.horizontal(|ui| {
+                                        ui.checkbox(&mut task.done, "");
+                                        if task.edit {
+                                            // Render edit text box for task
+                                            let response = ui.add(TextEdit::singleline(&mut task.text));
+
+                                            if self.first_time_edit {
+                                                response.request_focus();
+                                                self.first_time_edit = false;
+                                            }
+
+                                            if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter) || i.key_pressed(egui::Key::Escape)) {
+                                                self.mode = Mode::Main;
+                                                task.edit = false;
+                                            }
+
+                                            if ui.button("-").clicked() {
+                                                self.mode = Mode::Main;
+                                                task.delete = true;
+                                            }
+                                        } else {
+                                            // Render normally
+                                            ui.label(&task.text);
+                                        }
+                                    });
+                                }
+
+                                ui.add_space(12.0);
+
+                                section.tasks.retain(|t| t.delete != true);
+                            }
+                            ui.separator();
+                        },
+
+                        // In this mode all Sections and Tasks are rendered as plain
+                        // labels except for the Section being edited which should be an
+                        // edit box
+                        Mode::EditSection => {
+                            for section in &mut self.sections {
+                                if section.edit {
+                                    ui.horizontal(|ui| {
+                                        let response = ui.add(TextEdit::singleline(&mut section.title));
+
+                                        if self.first_time_edit {
+                                            response.request_focus();
+                                            self.first_time_edit = false;
+                                        }
+
+                                        if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter) || i.key_pressed(egui::Key::Escape)) {
+                                            self.mode = Mode::Main;
+                                            section.edit = false;
+                                        }
+
+                                        if ui.button("-").clicked() {
+                                            self.mode = Mode::Main;
+                                            section.tasks.clear();
+                                            section.delete = true;
+                                        }
+                                    });
+                                } else {
+                                    ui.heading(&section.title);
+                                }
+
+                                for task in &mut section.tasks {
+                                    ui.horizontal(|ui| {
+                                        ui.checkbox(&mut task.done, "");
+                                        ui.label(&task.text);
+                                    });
+                                }
+
+                                ui.add_space(12.0);
+                            }
+
+                            // Delete any section that was set to be deleted
+                            self.sections.retain(|s| s.delete != true);
+
+                            ui.separator();
+                        },
+
+                        _ => {}
+                    }
+                });
+            });
+        });
 
         egui::CentralPanel::default().show(ctx, |ui| {
+            // Actual rendering
             ui.vertical(|ui| {
+                // Section with diary entries
                 egui::ScrollArea::vertical().show(ui, |ui| {
-                    // Section with diary entries
                     match self.mode {
                         Mode::Main => {
                             // Handle zooming
@@ -230,11 +420,17 @@ impl eframe::App for MyApp {
 
                                 ui.add_space(10.0);
                             }
-                        }
+                        },
+
+                        _ => {}
                     }
                 });
 
-                    // Section with graphs
+                // Section with graphs
+
+                // Variables used in all layouts
+                //let weight_vec: Vec<f32>;
+                //let waist_vec: Vec<f32>;
             });
         });
     }

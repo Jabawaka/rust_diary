@@ -7,3 +7,5 @@ Cargo.lock
 
 # Application specific ignores
 diary.json
+
+.DS_Store
