@@ -102,16 +102,6 @@ impl MyApp {
         }
     }
 
-    pub fn save_to_file(&self) {
-        fs::write(&self.path_to_file, &serde_json::to_vec_pretty(&self.entries).expect("DB should be writeable")).expect("DB should be writeable");
-    }
-
-    pub fn load_from_file(&mut self) {
-        if let Ok(file_contents) = fs::read_to_string(&self.path_to_file){
-            self.entries = serde_json::from_str(&file_contents).unwrap();
-        }
-    }
-
     pub fn get_entry_by_date(&self, date: Date) -> Option<Entry> {
         if let Some(entry) = self.entries.iter().find(|entry| entry.date == date) {
             return Some(entry.clone());
@@ -119,7 +109,6 @@ impl MyApp {
             return None;
         }
     }
-
 
     pub fn add_section(&mut self, title: &str, edit: bool) {
         self.sections.push(Section {title: title.to_string(), tasks: vec![], edit, delete: false});
@@ -407,9 +396,9 @@ impl eframe::App for MyApp {
 
                                 ui.add_space(10.0);
                             }
-                        },
 
-                        _ => {}
+                            self.entries.retain(|t| {t.content.len() > 0 || t.weight_kg > 0.0 || t.waist_cm > 0.0});
+                        },
                     }
                 });
 
