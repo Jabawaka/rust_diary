@@ -92,6 +92,7 @@ impl MyApp {
         if let Some(storage) = cc.storage {
             if let Some(mut app) = eframe::get_value::<MyApp>(storage, eframe::APP_KEY) {
                 app.curr_date = OffsetDateTime::now_local().unwrap().date();
+                app.mode = Mode::Main;
                 app
             } else {
                 MyApp::default()
@@ -396,7 +397,7 @@ impl eframe::App for MyApp {
                                 ui.add_space(10.0);
                             }
 
-                            self.entries.retain(|t| {t.content.len() > 0 || t.weight_kg > 0.0 || t.waist_cm > 0.0});
+                            self.entries.retain(|t| {t.edit == true || t.content.len() > 0 || t.weight_kg > 0.0 || t.waist_cm > 0.0});
                         },
                     }
                 });
