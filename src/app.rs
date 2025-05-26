@@ -1,6 +1,5 @@
-use std::fs;
-
 use eframe::egui::{self, TextEdit, Label, Sense, DragValue, RichText};
+use egui_plot::{Line, Plot, PlotPoints};
 use time::{Date, OffsetDateTime, format_description};
 use serde::{Deserialize, Serialize};
 
@@ -16,7 +15,7 @@ pub struct Entry {
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
-struct Task {
+pub struct Task {
     text: String,
     done: bool,
     edit: bool,
@@ -35,7 +34,7 @@ impl Task {
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
-struct Section {
+pub struct Section {
     title: String,
     tasks: Vec<Task>,
     edit: bool,
@@ -219,7 +218,7 @@ impl eframe::App for MyApp {
                                             self.first_time_edit = false;
                                         }
 
-                                        if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter) || i.key_pressed(egui::Key::Escape)) {
+                                        if response.lost_focus() || ui.input(|i| i.key_pressed(egui::Key::Enter) || i.key_pressed(egui::Key::Escape)) {
                                             self.mode = Mode::Main;
                                             section.edit = false;
                                         }
@@ -246,7 +245,7 @@ impl eframe::App for MyApp {
                                                 self.first_time_edit = false;
                                             }
 
-                                            if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter) || i.key_pressed(egui::Key::Escape)) {
+                                            if response.lost_focus() || ui.input(|i| i.key_pressed(egui::Key::Enter) || i.key_pressed(egui::Key::Escape)) {
                                                 self.mode = Mode::Main;
                                                 task.edit = false;
                                             }
@@ -364,7 +363,7 @@ impl eframe::App for MyApp {
                                         self.first_time_edit = false;
                                     }
 
-                                    if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Escape)) {
+                                    if ui.input(|i| i.key_pressed(egui::Key::Escape)) {
                                         self.mode = Mode::Main;
                                         entry.edit = false;
                                     }

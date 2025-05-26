@@ -7,6 +7,7 @@ publish = false
 
 [dependencies]
 eframe = { version = "0.31", features = ["persistence"] }
+egui_plot = { version = "0.32.1" }
 serde = { version = "1", features = ["derive"] }
 time = { version = "0.3.37", features = ["local-offset", "formatting", "serde"] }
 serde_json = "1.0.134"
