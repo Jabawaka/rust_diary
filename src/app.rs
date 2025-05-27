@@ -262,7 +262,7 @@ impl eframe::App for MyApp {
                                             self.first_time_edit = false;
                                         }
 
-                                        if response.lost_focus() || ui.input(|i| i.key_pressed(egui::Key::Enter) || i.key_pressed(egui::Key::Escape)) {
+                                        if ui.input(|i| i.key_pressed(egui::Key::Enter) || i.key_pressed(egui::Key::Escape)) {
                                             self.mode = Mode::Main;
                                             section.edit = false;
                                         }
@@ -280,6 +280,7 @@ impl eframe::App for MyApp {
                                 for task in &mut section.tasks {
                                     ui.horizontal(|ui| {
                                         ui.checkbox(&mut task.done, "");
+
                                         if task.edit {
                                             // Render edit text box for task
                                             let response = ui.add(TextEdit::singleline(&mut task.text));
@@ -289,7 +290,7 @@ impl eframe::App for MyApp {
                                                 self.first_time_edit = false;
                                             }
 
-                                            if response.lost_focus() || ui.input(|i| i.key_pressed(egui::Key::Enter) || i.key_pressed(egui::Key::Escape)) {
+                                            if ui.input(|i| i.key_pressed(egui::Key::Enter) || i.key_pressed(egui::Key::Escape)) {
                                                 self.mode = Mode::Main;
                                                 task.edit = false;
                                             }
@@ -309,6 +310,9 @@ impl eframe::App for MyApp {
 
                                 section.tasks.retain(|t| t.delete != true);
                             }
+
+                            self.sections.retain(|t| t.delete != true);
+
                             ui.separator();
                         },
                     }
