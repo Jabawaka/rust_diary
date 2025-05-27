@@ -1,5 +1,8 @@
+use std::ops::RangeInclusive;
+
 use eframe::egui::{self, TextEdit, Label, Sense, DragValue, RichText};
-use egui_plot::{Line, Plot, PlotPoints};
+use egui_plot::{Line, Plot, PlotPoints, GridMark};
+use ecolor::Color32;
 use time::{Date, OffsetDateTime, format_description};
 use serde::{Deserialize, Serialize};
 
@@ -110,6 +113,36 @@ impl MyApp {
         }
     }
 
+    pub fn get_weights(&self) -> PlotPoints {
+        let curr_date_julian = self.curr_date.to_julian_day();
+
+        let mut weight_points = vec![];
+
+        for entry in &self.entries {
+            if entry.weight_kg != 0.0 {
+                let entry_date_offset = entry.date.to_julian_day() - curr_date_julian;
+                weight_points.push([entry_date_offset as f64, entry.weight_kg as f64]);
+            }
+        }
+
+        PlotPoints::new(weight_points)
+    }
+
+    pub fn get_waists(&self) -> PlotPoints {
+        let curr_date_julian = self.curr_date.to_julian_day();
+
+        let mut waist_points = vec![];
+
+        for entry in &self.entries {
+            if entry.waist_cm != 0.0 {
+                let entry_date_offset = entry.date.to_julian_day() - curr_date_julian;
+                waist_points.push([entry_date_offset as f64, entry.waist_cm as f64]);
+            }
+        }
+
+        PlotPoints::new(waist_points)
+    }
+
     pub fn add_section(&mut self, title: &str, edit: bool) {
         self.sections.push(Section {title: title.to_string(), tasks: vec![], edit, delete: false});
     }
@@ -125,6 +158,16 @@ impl MyApp {
 
         self.sections.retain(|t| t.delete != true);
     }
+}
+
+fn x_axis_dates(grid_mark: GridMark, _: &RangeInclusive<f64>) -> String {
+    let curr_date_julian = OffsetDateTime::now_local().unwrap().date().to_julian_day();
+    let grid_date_julian = curr_date_julian + grid_mark.value.round() as i32;
+    let grid_date = Date::from_julian_day(grid_date_julian).unwrap();
+    let format = format_description::parse("[day]/[month]").unwrap();
+    let date_string = grid_date.format(&format).unwrap();
+
+    date_string
 }
 
 impl eframe::App for MyApp {
@@ -276,6 +319,51 @@ impl eframe::App for MyApp {
         // Diary section
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.vertical(|ui| {
+
+                // Section with graphs
+                ui.horizontal(|ui| {
+                    let weight_points = self.get_weights();
+                    let waist_points = self.get_waists();
+
+                    let weight_line = Line::new("Weight", weight_points)
+                        .width(1.5)
+                        .color(Color32::CYAN);
+                    let waist_line = Line::new("test", waist_points)
+                        .width(1.5)
+                        .color(Color32::CYAN);
+
+                    let half_ui = ui.available_width() / 2.0 - 20.0;
+
+                    Plot::new("weight").view_aspect(1.6)
+                        .width(half_ui)
+                        .allow_boxed_zoom(false)
+                        .allow_double_click_reset(false)
+                        .allow_drag(false)
+                        .allow_scroll(false)
+                        .allow_zoom(false)
+                        .show_x(false)
+                        .show_y(false)
+                        .default_y_bounds(70.0, 90.0)
+                        .show_background(false)
+                        .x_axis_formatter(x_axis_dates)
+                        .y_axis_label("Weight [kg]")
+                        .show(ui, |plot_ui| plot_ui.line(weight_line));
+                    Plot::new("waist").view_aspect(1.6)
+                        .width(half_ui)
+                        .allow_boxed_zoom(false)
+                        .allow_double_click_reset(false)
+                        .allow_drag(false)
+                        .allow_scroll(false)
+                        .allow_zoom(false)
+                        .show_x(false)
+                        .show_y(false)
+                        .default_y_bounds(70.0, 90.0)
+                        .show_background(false)
+                        .x_axis_formatter(x_axis_dates)
+                        .y_axis_label("Waist [cm]")
+                        .show(ui, |plot_ui| plot_ui.line(waist_line));
+                });
+
                 // Section with diary entries
                 egui::ScrollArea::vertical().show(ui, |ui| {
                     // If there is no entry for today, add a prompt for it
@@ -401,12 +489,6 @@ impl eframe::App for MyApp {
                         },
                     }
                 });
-
-                // Section with graphs
-
-                // Variables used in all layouts
-                //let weight_vec: Vec<f32>;
-                //let waist_vec: Vec<f32>;
             });
         });
     }
