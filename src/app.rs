@@ -143,6 +143,30 @@ impl MyApp {
         PlotPoints::new(waist_points)
     }
 
+    pub fn get_max_weight(&self) -> f32 {
+        let mut max_weight = 0.0;
+
+        for entry in &self.entries {
+            if entry.weight_kg > max_weight {
+                max_weight = entry.weight_kg;
+            }
+        }
+
+        max_weight
+    }
+
+    pub fn get_max_waist(&self) -> f32 {
+        let mut max_waist = 0.0;
+
+        for entry in &self.entries {
+            if entry.waist_cm > max_waist {
+                max_waist = entry.waist_cm;
+            }
+        }
+
+        max_waist
+    }
+
     pub fn add_section(&mut self, title: &str, edit: bool) {
         self.sections.push(Section {title: title.to_string(), tasks: vec![], edit, delete: false});
     }
@@ -338,6 +362,12 @@ impl eframe::App for MyApp {
 
                     let half_ui = ui.available_width() / 2.0 - 20.0;
 
+                    let max_weight = self.get_max_weight();
+                    let max_waist = self.get_max_waist();
+
+                    let max_weight = ((max_weight.floor() as i32 / 5 + 1) * 5) as f64;
+                    let max_waist = ((max_waist.floor() as i32 / 5 + 1) * 5) as f64;
+
                     Plot::new("weight").view_aspect(1.6)
                         .width(half_ui)
                         .allow_boxed_zoom(false)
@@ -347,7 +377,7 @@ impl eframe::App for MyApp {
                         .allow_zoom(false)
                         .show_x(false)
                         .show_y(false)
-                        .default_y_bounds(70.0, 90.0)
+                        .default_y_bounds(max_weight - 20.0, max_weight)
                         .show_background(false)
                         .x_axis_formatter(x_axis_dates)
                         .y_axis_label("Weight [kg]")
@@ -361,7 +391,7 @@ impl eframe::App for MyApp {
                         .allow_zoom(false)
                         .show_x(false)
                         .show_y(false)
-                        .default_y_bounds(70.0, 90.0)
+                        .default_y_bounds(max_waist - 20.0, max_waist)
                         .show_background(false)
                         .x_axis_formatter(x_axis_dates)
                         .y_axis_label("Waist [cm]")
