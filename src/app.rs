@@ -356,7 +356,7 @@ impl eframe::App for MyApp {
                     let weight_line = Line::new("Weight", weight_points)
                         .width(1.5)
                         .color(Color32::CYAN);
-                    let waist_line = Line::new("test", waist_points)
+                    let waist_line = Line::new("Waist", waist_points)
                         .width(1.5)
                         .color(Color32::CYAN);
 
