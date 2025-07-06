@@ -65,6 +65,12 @@ pub enum Mode {
     Edit
 }
 
+#[derive(serde::Serialize, serde::Deserialize)]
+pub enum Zoom {
+    Day,
+    Week,
+}
+
 
 #[derive(serde::Serialize, serde::Deserialize)]
 pub struct MyApp {
@@ -72,6 +78,7 @@ pub struct MyApp {
     pub entries: Vec<Entry>,
     pub curr_date: Date,
     pub mode: Mode,
+    pub zoom: Zoom,
 
     pub first_time_edit: bool,
     pub scale_factor: f32,
@@ -85,6 +92,7 @@ impl MyApp {
             entries: vec![],
             curr_date: OffsetDateTime::now_local().unwrap().date(),
             mode: Mode::Main,
+            zoom: Zoom::Day,
 
             first_time_edit: false,
             scale_factor: 2.0,
@@ -96,6 +104,7 @@ impl MyApp {
             if let Some(mut app) = eframe::get_value::<MyApp>(storage, eframe::APP_KEY) {
                 app.curr_date = OffsetDateTime::now_local().unwrap().date();
                 app.mode = Mode::Main;
+                app.zoom = Zoom::Day;
                 app
             } else {
                 MyApp::default()
@@ -118,11 +127,48 @@ impl MyApp {
 
         let mut weight_points = vec![];
 
-        for entry in &self.entries {
-            if entry.weight_kg != 0.0 {
-                let entry_date_offset = entry.date.to_julian_day() - curr_date_julian;
-                weight_points.push([entry_date_offset as f64, entry.weight_kg as f64]);
-            }
+        match self.zoom {
+            Zoom::Day => {
+                for entry in &self.entries {
+                    if entry.weight_kg != 0.0 {
+                        let entry_date_offset = entry.date.to_julian_day() - curr_date_julian;
+                        weight_points.push([entry_date_offset as f64, entry.weight_kg as f64]);
+                    }
+                }
+            },
+            Zoom::Week => {
+                let mut curr_day;
+                let mut prev_day;
+                if self.entries.len() > 0 {
+                    curr_day = self.entries[0].date;
+                    prev_day = curr_day.prev_occurrence(curr_day.weekday());
+
+                    let mut average_weight_kg = 0.0;
+                    let mut num_weights = 0;
+
+                    for entry in &self.entries {
+                        if entry.date > prev_day && entry.date <= curr_day {
+                            // Add to the average for the week
+                            if entry.weight_kg != 0.0
+                            {
+                                average_weight_kg += entry.weight_kg;
+                                num_weights += 1;
+                            }
+                        } else {
+                            // Add point to return vector
+                            let entry_date_offset = curr_day.to_julian_day() - self.curr_date.to_julian_day();
+                            weight_points.push([entry_date_offset as f64, (average_weight_kg as f64 / num_weights as f64)]);
+
+                            // Recalculate the current and previous day
+                            curr_day = prev_day;
+                            prev_day = curr_day.prev_occurrence(curr_day.weekday());
+
+                            average_weight_kg = 0.0;
+                            num_weights = 0;
+                        }
+                    }
+                }
+            },
         }
 
         PlotPoints::new(weight_points)
@@ -133,11 +179,49 @@ impl MyApp {
 
         let mut waist_points = vec![];
 
-        for entry in &self.entries {
-            if entry.waist_cm != 0.0 {
-                let entry_date_offset = entry.date.to_julian_day() - curr_date_julian;
-                waist_points.push([entry_date_offset as f64, entry.waist_cm as f64]);
-            }
+        match self.zoom {
+            Zoom::Day => {
+                for entry in &self.entries {
+                    if entry.waist_cm != 0.0 {
+                        let entry_date_offset = entry.date.to_julian_day() - curr_date_julian;
+                        waist_points.push([entry_date_offset as f64, entry.waist_cm as f64]);
+                    }
+                }
+            },
+
+            Zoom::Week => {
+                let mut curr_day;
+                let mut prev_day;
+                if self.entries.len() > 0 {
+                    curr_day = self.entries[0].date;
+                    prev_day = curr_day.prev_occurrence(curr_day.weekday());
+
+                    let mut average_waist_cm = 0.0;
+                    let mut num_waists = 0;
+
+                    for entry in &self.entries {
+                        if entry.date > prev_day && entry.date <= curr_day {
+                            // Add to the average for the week
+                            if entry.waist_cm != 0.0
+                            {
+                                average_waist_cm += entry.waist_cm;
+                                num_waists += 1;
+                            }
+                        } else {
+                            // Add point to return vector
+                            let entry_date_offset = curr_day.to_julian_day() - self.curr_date.to_julian_day();
+                            waist_points.push([entry_date_offset as f64, (average_waist_cm as f64 / num_waists as f64)]);
+
+                            // Recalculate the current and previous day
+                            curr_day = prev_day;
+                            prev_day = curr_day.prev_occurrence(curr_day.weekday());
+
+                            average_waist_cm = 0.0;
+                            num_waists = 0;
+                        }
+                    }
+                }
+            },
         }
 
         PlotPoints::new(waist_points)
@@ -230,6 +314,15 @@ impl eframe::App for MyApp {
                                 ctx.set_pixels_per_point(self.scale_factor);
                             }
 
+                            // Handle graph zoom
+                            if ui.input(|i| i.key_pressed(egui::Key::ArrowLeft)) {
+                                self.zoom = Zoom::Day;
+                            }
+
+                            if ui.input(|i| i.key_pressed(egui::Key::ArrowRight)) {
+                                self.zoom = Zoom::Week;
+                            }
+
                             if ui.input(|i| i.key_pressed(egui::Key::C)) {
                                 self.clean_tasks();
                             }
@@ -266,7 +359,7 @@ impl eframe::App for MyApp {
                             ui.separator();
 
                             // Render an invisible Section used to add a Section
-                            let response = ui.add(Label::new(RichText::new("                          ").heading()));
+                            let response = ui.add(Label::new(RichText::new("                             ").heading()));
                             if response.clicked() {
                                 let empty = String::new();
                                 self.add_section(&empty, true);
