@@ -82,6 +82,7 @@ pub struct MyApp {
 
     pub first_time_edit: bool,
     pub scale_factor: f32,
+    pub redux_mode: bool,
     pub path_to_file: String,
 }
 
@@ -96,7 +97,8 @@ impl MyApp {
 
             first_time_edit: false,
             scale_factor: 2.0,
-            path_to_file: String::from("diary.json"),
+            redux_mode: false,
+            path_to_file: String::from("diary.ron"),
         }
     }
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
@@ -517,32 +519,39 @@ impl eframe::App for MyApp {
                     // Rest of entries
                     match self.mode {
                         Mode::Main => {
+                            // Toggle redux mode
+                            if ui.input(|i| i.key_pressed(egui::Key::R)) {
+                                self.redux_mode = !self.redux_mode;
+                            }
+
                             for entry in &mut self.entries {
                                 let format = format_description::parse("[day]-[month]-[year]").unwrap();
                                 let date_string = entry.date.format(&format).unwrap();
 
-                                ui.horizontal(|ui| {
-                                    let mut weight_string = String::from("--");
+                                if !self.redux_mode || entry.content.len() > 0 {
+                                    ui.horizontal(|ui| {
+                                        let mut weight_string = String::from("--");
 
-                                    if entry.weight_kg != 0.0 {
-                                        weight_string = format!("{:.1}", entry.weight_kg);
-                                    }
-                                    weight_string.push_str(" kg");
+                                        if entry.weight_kg != 0.0 {
+                                            weight_string = format!("{:.1}", entry.weight_kg);
+                                        }
+                                        weight_string.push_str(" kg");
 
-                                    let mut waist_string = String::from("--");
-                                    if entry.waist_cm != 0.0 {
-                                        waist_string = format!("{:.1}", entry.waist_cm);
-                                    }
-                                    waist_string.push_str(" cm");
+                                        let mut waist_string = String::from("--");
+                                        if entry.waist_cm != 0.0 {
+                                            waist_string = format!("{:.1}", entry.waist_cm);
+                                        }
+                                        waist_string.push_str(" cm");
 
-                                    if ui.add(Label::new(RichText::new(date_string).heading()).sense(Sense::click())).clicked() {
-                                        entry.edit = true;
-                                        self.mode = Mode::Edit;
-                                        self.first_time_edit = true;
-                                    }
-                                    ui.label(weight_string);
-                                    ui.label(waist_string);
-                                });
+                                        if ui.add(Label::new(RichText::new(date_string).heading()).sense(Sense::click())).clicked() {
+                                            entry.edit = true;
+                                            self.mode = Mode::Edit;
+                                            self.first_time_edit = true;
+                                        }
+                                        ui.label(weight_string);
+                                        ui.label(waist_string);
+                                    });
+                                }
 
                                 if entry.content.len() > 0 {
                                     if ui.add(Label::new(&entry.content).sense(Sense::click())).clicked() {
